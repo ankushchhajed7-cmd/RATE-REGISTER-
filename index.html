@@ -1,0 +1,281 @@
+<!doctype html>
+<!--
+  Kirana Rate Register — Windows app (Electron)
+  v1.0.0 (2026-10-12)
+   - Product × date rate register (notebook jaisa)
+   - Rate up/down arrow, total farak column
+   - + Product / + Date, search, Enter = next row
+   - Excel (CSV) export, Backup / Restore, Print
+   - Offline: system fonts (Nirmala UI) — internet ki zarurat nahi
+-->
+<html lang="hi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kirana Rate Register</title>
+<style>
+:root{
+  --paper:#e9ecf2; --sheet:#f7f8fb; --rule:#cfd5e2; --ink:#1f2a6b; --fg:#222634; --muted:#667089;
+  --up:#c0392b; --down:#1e8a4c; --hl:#fff6c9;
+  --f-body:"Nirmala UI","Segoe UI","Hind","Mangal",system-ui,sans-serif;
+  --f-num:"Cascadia Mono",Consolas,ui-monospace,monospace;
+}
+@media (prefers-color-scheme: dark){:root{
+  --paper:#13161f; --sheet:#1b1f2b; --rule:#2e3446; --ink:#9db0ff; --fg:#e4e7f0; --muted:#8d95ab;
+  --up:#ff7a6b; --down:#5fd38f; --hl:#3a3518; color-scheme:dark}}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{margin:0}
+body{background:var(--paper);color:var(--fg);font-family:var(--f-body);font-size:15px}
+.wrap{max-width:1400px;margin:0 auto;padding:18px 20px 40px;display:grid;gap:14px}
+header{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:8px}
+h1{font-size:1.7rem;font-weight:700;line-height:1.1;margin:0;color:var(--ink)}
+.sub{color:var(--muted);font-size:.9rem;margin:2px 0 0}
+.ver{font-size:.75rem;color:var(--muted);font-family:var(--f-num)}
+.bar{display:flex;flex-wrap:wrap;gap:8px}
+.bar input[type=search]{flex:1 1 220px;min-width:0}
+input,button{font:inherit;color:inherit}
+input{background:var(--sheet);border:1px solid var(--rule);border-radius:6px;padding:8px 10px}
+button{cursor:pointer;border-radius:6px;padding:8px 14px;border:1px solid var(--ink);background:var(--ink);color:var(--sheet);font-weight:600}
+button.ghost{background:transparent;color:var(--ink)}
+button:focus-visible,input:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+.panel{background:var(--sheet);border:1px solid var(--rule);border-radius:8px;padding:12px;display:flex;flex-wrap:wrap;gap:8px;align-items:flex-end}
+.panel label{font-size:.85rem;color:var(--muted);display:grid;gap:3px;flex:1 1 160px;min-width:0}
+.note{font-size:.85rem;color:var(--muted);margin:0}
+.toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);background:var(--ink);color:var(--sheet);padding:8px 16px;border-radius:6px;font-weight:600}
+.sheetbox{overflow:auto;max-height:calc(100vh - 230px);background:var(--sheet);border:1px solid var(--rule);border-radius:8px}
+table{border-collapse:collapse;width:100%}
+th,td{border-bottom:1px solid var(--rule);padding:0;text-align:center;white-space:nowrap}
+thead th{position:sticky;top:0;background:var(--sheet);z-index:2;font-weight:600;color:var(--ink);font-size:.8rem;padding:10px 8px;border-bottom:2px solid var(--ink)}
+thead th .d{display:block;font-family:var(--f-num);font-size:1rem}
+thead th .w{color:var(--muted);font-weight:400;font-size:.72rem}
+th.today{background:var(--hl)}
+th.prod,td.prod{position:sticky;left:0;background:var(--sheet);text-align:left;z-index:1;border-right:2px solid var(--rule)}
+thead th.prod{z-index:3}
+td.prod{padding:6px 10px;min-width:170px}
+td.prod b{font-weight:600;display:block;font-size:1rem}
+td.prod small{color:var(--muted)}
+td.prod .x{float:right;background:none;border:none;color:var(--muted);padding:0 2px;font-weight:400}
+tbody tr:hover td{background:color-mix(in srgb,var(--hl) 45%,var(--sheet))}
+td.cell{position:relative}
+td.cell input{width:96px;border:none;background:transparent;text-align:center;font-family:var(--f-num);font-variant-numeric:tabular-nums;font-size:1rem;color:var(--ink);padding:12px 4px 18px;border-radius:0}
+td.cell input::placeholder{color:var(--rule)}
+td.cell .chg{position:absolute;left:0;right:0;bottom:3px;font-size:.7rem;font-family:var(--f-num);pointer-events:none}
+.up{color:var(--up)} .down{color:var(--down)}
+td.net{font-family:var(--f-num);font-size:.85rem;padding:0 12px}
+th .del{display:block;margin:4px auto 0;background:none;border:none;color:var(--muted);font-size:.7rem;padding:0;font-weight:400}
+.legend{display:flex;flex-wrap:wrap;gap:14px;font-size:.82rem;color:var(--muted)}
+.printhead{display:none}
+@media print{
+  body{background:#fff;color:#000}
+  .bar,.panel,.note,.legend,header,.x,.del,.toast{display:none!important}
+  .printhead{display:block;font-size:18px;font-weight:700;margin:0 0 8px}
+  .sheetbox{max-height:none;overflow:visible;border:none}
+  th,td{border:1px solid #999!important}
+  th.prod,td.prod,thead th{position:static}
+  td.cell input{color:#000}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <h1>दर रजिस्टर · Rate Register</h1>
+      <p class="sub">Ankush Kirana — product wise, date wise rate</p>
+    </div>
+    <span class="ver">v1.0.0</span>
+  </header>
+
+  <div class="bar">
+    <input type="search" id="q" placeholder="Product search… (चायपत्ती, साखर)" aria-label="Product search">
+    <button id="btnP">+ Product</button>
+    <button id="btnD" class="ghost">+ Date</button>
+    <button id="btnX" class="ghost" title="Excel mein khulne wali file">Excel</button>
+    <button id="btnPrint" class="ghost">Print</button>
+    <button id="btnB" class="ghost" title="Saara data ek file mein save">Backup</button>
+    <button id="btnR" class="ghost" title="Backup file se data wapas lao">Restore</button>
+    <input type="file" id="fileR" accept=".json,application/json" hidden>
+  </div>
+
+  <form class="panel" id="formP" hidden>
+    <label>Product naam<input id="pName" required placeholder="उदा. तूर दाल"></label>
+    <label>Unit<input id="pUnit" placeholder="kg / ltr / pkt" value="kg"></label>
+    <button type="submit">Add</button><button type="button" class="ghost" data-close>Cancel</button>
+  </form>
+
+  <form class="panel" id="formD" hidden>
+    <label>Nayi date<input id="dVal" type="date" required></label>
+    <button type="submit">Add column</button><button type="button" class="ghost" data-close>Cancel</button>
+  </form>
+
+  <form class="panel" id="formRestore" hidden>
+    <span class="note" id="restoreMsg"></span>
+    <button type="submit">Haan, restore karo</button><button type="button" class="ghost" data-close>Cancel</button>
+  </form>
+
+  <p class="note" id="sample">Abhi sample rates bhare hain (example ke liye). Kisi bhi khane par click karke apna rate likhiye — Enter dabane par agla product. Sab data isi PC par save hota hai.</p>
+
+  <div class="printhead" id="printhead">Ankush Kirana — Rate List</div>
+  <div class="sheetbox"><table id="t"></table></div>
+
+  <div class="legend">
+    <span><b class="up">▲</b> pichli date se mehenga</span>
+    <span><b class="down">▼</b> pichli date se sasta</span>
+    <span>Farak = pehli date se aakhri rate tak</span>
+  </div>
+</div>
+<div class="toast" id="toast" hidden></div>
+
+<script>
+const KEY='ak-rate-register-v1';
+const sample={
+  dates:['2026-10-01','2026-10-05','2026-10-10','2026-10-15'],
+  products:[
+    {id:1,name:'चायपत्ती',unit:'kg',rates:{'2026-10-01':480,'2026-10-05':480,'2026-10-10':500}},
+    {id:2,name:'साखर',unit:'kg',rates:{'2026-10-01':44,'2026-10-05':45,'2026-10-10':44}},
+    {id:3,name:'सोयाबीन तेल',unit:'ltr',rates:{'2026-10-01':132,'2026-10-05':135,'2026-10-10':138}},
+    {id:4,name:'तूर दाल',unit:'kg',rates:{'2026-10-01':160,'2026-10-05':155,'2026-10-10':152}},
+    {id:5,name:'गेहूं आटा',unit:'kg',rates:{'2026-10-01':38,'2026-10-05':38,'2026-10-10':40}}
+  ],
+  isSample:true
+};
+let S;
+try{S=JSON.parse(localStorage.getItem(KEY))}catch(e){}
+if(!S||!Array.isArray(S.dates)||!Array.isArray(S.products))S=JSON.parse(JSON.stringify(sample));
+const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){toast('Save nahi hua!')}};
+const $=s=>document.querySelector(s);
+const pad=n=>String(n).padStart(2,'0');
+const now=new Date();
+const today=`${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}`;
+const days=['रवि','सोम','मंगल','बुध','गुरु','शुक्र','शनि'];
+const fmtD=d=>{const [y,m,dd]=d.split('-');return `${+dd}/${+m}`};
+const fmtN=n=>Number.isInteger(n)?String(n):n.toFixed(2);
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+let tt;
+function toast(m){const t=$('#toast');t.textContent=m;t.hidden=false;clearTimeout(tt);tt=setTimeout(()=>t.hidden=true,2200)}
+
+function calc(p){
+  const chg={};let prev=null,first=null,last=null;
+  for(const d of S.dates){
+    const v=p.rates[d]; if(v==null)continue;
+    if(prev!=null&&v!==prev){const diff=v-prev;chg[d]=`<span class="${diff>0?'up':'down'}">${diff>0?'▲':'▼'} ${fmtN(Math.abs(diff))}</span>`}
+    prev=v; if(first==null)first=v; last=v;
+  }
+  let net='—';
+  if(first!=null){const n=last-first;net=n===0?'0':`<span class="${n>0?'up':'down'}">${n>0?'+':'−'}₹${fmtN(Math.abs(n))}</span>`}
+  return {chg,net};
+}
+function updateRow(p){
+  const tr=document.querySelector(`tr[data-row="${p.id}"]`); if(!tr)return;
+  const c=calc(p);
+  tr.querySelectorAll('[data-chg]').forEach(sp=>sp.innerHTML=c.chg[sp.dataset.chg]||'');
+  tr.querySelector('.net').innerHTML=c.net;
+}
+function render(){
+  S.dates.sort();
+  const q=$('#q').value.trim().toLowerCase();
+  let h='<thead><tr><th class="prod">Product</th>';
+  for(const d of S.dates){
+    const w=days[new Date(d+'T00:00').getDay()];
+    h+=`<th class="${d===today?'today':''}">Date<span class="d">${fmtD(d)}</span><span class="w">${w}</span><button class="del" data-deld="${d}">hatao</button></th>`;
+  }
+  h+='<th>Farak</th></tr></thead><tbody>';
+  for(const p of S.products){
+    if(q&&!p.name.toLowerCase().includes(q))continue;
+    const c=calc(p);
+    h+=`<tr data-row="${p.id}"><td class="prod"><button class="x" data-delp="${p.id}" title="Product hatao">×</button><b>${esc(p.name)}</b><small>₹ / ${esc(p.unit)}</small></td>`;
+    for(const d of S.dates){
+      const v=p.rates[d];
+      h+=`<td class="cell"><input inputmode="decimal" id="c-${p.id}-${d}" data-p="${p.id}" data-d="${d}" value="${v??''}" placeholder="—" aria-label="${esc(p.name)} ${fmtD(d)} rate"><span class="chg" data-chg="${d}">${c.chg[d]||''}</span></td>`;
+    }
+    h+=`<td class="net">${c.net}</td></tr>`;
+  }
+  h+='</tbody>';
+  $('#t').innerHTML=h;
+  $('#sample').hidden=!S.isSample;
+}
+
+function commit(i){
+  const p=S.products.find(x=>x.id==i.dataset.p); if(!p)return;
+  const v=parseFloat(i.value);
+  if(isNaN(v)){delete p.rates[i.dataset.d];i.value=''} else {p.rates[i.dataset.d]=v;i.value=v}
+  S.isSample=false; save(); updateRow(p);
+}
+$('#t').addEventListener('change',e=>{if(e.target.dataset.p)commit(e.target)});
+$('#t').addEventListener('keydown',e=>{
+  const i=e.target; if(!i.dataset.p||e.key!=='Enter')return;
+  e.preventDefault();
+  const inputs=[...document.querySelectorAll(`#t input[data-d="${i.dataset.d}"]`)];
+  const n=inputs[inputs.indexOf(i)+(e.shiftKey?-1:1)];
+  if(n){n.focus();n.select()} else i.blur();
+});
+$('#t').addEventListener('click',e=>{
+  const b=e.target.closest('button'); if(!b)return;
+  const arm=(label)=>{b.dataset.armed=1;b.textContent='pakka?';setTimeout(()=>{if(b.isConnected){b.textContent=label;delete b.dataset.armed}},2500)};
+  if(b.dataset.delp){
+    if(!b.dataset.armed)return arm('×');
+    S.products=S.products.filter(x=>x.id!=b.dataset.delp);S.isSample=false;save();render();toast('Product hata diya');
+  }
+  if(b.dataset.deld){
+    if(!b.dataset.armed)return arm('hatao');
+    const d=b.dataset.deld;S.dates=S.dates.filter(x=>x!==d);S.products.forEach(p=>delete p.rates[d]);S.isSample=false;save();render();toast('Date hata di');
+  }
+});
+const forms=['#formP','#formD','#formRestore'];
+const show=f=>forms.forEach(x=>$(x).hidden=x!==f);
+$('#btnP').onclick=()=>{show('#formP');$('#pName').focus()};
+$('#btnD').onclick=()=>{show('#formD');$('#dVal').value=today;$('#dVal').focus()};
+document.querySelectorAll('[data-close]').forEach(b=>b.onclick=()=>show(''));
+$('#formP').addEventListener('submit',e=>{
+  e.preventDefault();const n=$('#pName').value.trim();if(!n)return;
+  if(S.isSample){S.products=[];S.isSample=false}
+  S.products.push({id:Date.now(),name:n,unit:$('#pUnit').value.trim()||'kg',rates:{}});
+  save();$('#pName').value='';$('#pName').focus();render();toast(n+' jod diya');
+});
+$('#formD').addEventListener('submit',e=>{
+  e.preventDefault();const d=$('#dVal').value;if(!d)return;
+  if(S.dates.includes(d)){toast('Ye date pehle se hai');return}
+  S.dates.push(d);S.isSample=false;save();show('');render();toast(fmtD(d)+' column jod diya');
+});
+$('#q').addEventListener('input',render);
+
+function download(name,text,type){
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([text],{type}));
+  a.download=name;document.body.appendChild(a);a.click();
+  setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},1000);
+}
+$('#btnX').onclick=()=>{
+  const q=v=>`"${String(v).replace(/"/g,'""')}"`;
+  const rows=[['Product','Unit',...S.dates.map(fmtD)].map(q).join(',')];
+  for(const p of S.products)rows.push([p.name,p.unit,...S.dates.map(d=>p.rates[d]??'')].map(q).join(','));
+  download(`Rate List ${today}.csv`,'﻿'+rows.join('\r\n'),'text/csv;charset=utf-8');
+};
+$('#btnB').onclick=()=>download(`Rate Register Backup ${today}.json`,JSON.stringify(S,null,1),'application/json');
+$('#btnR').onclick=()=>$('#fileR').click();
+let pending=null;
+$('#fileR').addEventListener('change',e=>{
+  const f=e.target.files[0]; if(!f)return;
+  const r=new FileReader();
+  r.onload=()=>{
+    try{
+      const d=JSON.parse(r.result);
+      if(!Array.isArray(d.dates)||!Array.isArray(d.products))throw 0;
+      pending=d;
+      $('#restoreMsg').textContent=`Backup mein ${d.products.length} product aur ${d.dates.length} date hain. Abhi ka data badal jayega.`;
+      show('#formRestore');
+    }catch(err){toast('Ye sahi backup file nahi hai')}
+    e.target.value='';
+  };
+  r.readAsText(f);
+});
+$('#formRestore').addEventListener('submit',e=>{
+  e.preventDefault(); if(!pending)return;
+  S=pending;S.isSample=false;pending=null;save();show('');render();toast('Data restore ho gaya');
+});
+$('#btnPrint').onclick=()=>{$('#printhead').textContent=`Ankush Kirana — Rate List (${fmtD(today)})`;window.print()};
+render();
+</script>
+</body>
+</html>

@@ -1,0 +1,39 @@
+{
+  "name": "kirana-rate-register",
+  "productName": "Kirana Rate Register",
+  "version": "1.0.0",
+  "description": "Ankush Kirana — product wise, date wise rate register (Windows app)",
+  "author": "Ankush New Vision",
+  "license": "UNLICENSED",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder --win nsis portable --x64 --publish never"
+  },
+  "devDependencies": {
+    "electron": "33.2.1",
+    "electron-builder": "25.1.8"
+  },
+  "build": {
+    "appId": "com.ankushnewvision.rateregister",
+    "productName": "Kirana Rate Register",
+    "copyright": "Ankush New Vision",
+    "files": ["main.js", "index.html", "build/icon.png", "package.json"],
+    "directories": { "output": "dist", "buildResources": "build" },
+    "win": {
+      "icon": "build/icon.png",
+      "target": ["nsis", "portable"]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Rate Register",
+      "artifactName": "Kirana Rate Register Setup v${version}.${ext}"
+    },
+    "portable": {
+      "artifactName": "Kirana Rate Register Portable v${version}.${ext}"
+    }
+  }
+}
